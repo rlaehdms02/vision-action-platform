@@ -1,0 +1,9 @@
+django
+djangorestframework
+psycopg[binary]
+celery
+redis
+requests
+python-dotenv
+opencv-python-headless
+packaging

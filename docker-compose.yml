@@ -1,0 +1,86 @@
+# Vision AI 동작추론 플랫폼 — 5개 서비스를 한 번에 실행
+#   docker compose up -d --build
+#
+#   db      PostgreSQL 16      (작업·결과 저장)
+#   redis   Redis 7            (Celery 작업 대기열)
+#   ai      FastAPI :8001      (heavy 모델 추론만 담당)
+#   web     Django  :8000      (화면 + DRF API)
+#   worker  Celery             (카메라 수집 → ai 호출 → 결과 저장)
+#
+# 설정값은 .env 를 읽고, 컨테이너끼리 접속 주소(db/redis/ai)만 아래 environment 에서 덮어씁니다.
+
+services:
+  db:
+    image: postgres:16
+    env_file: .env                     # POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  ai:
+    build: ./ai_service
+    env_file: .env
+    environment:
+      FRAME_STRIDE: "2"
+    volumes:
+      - ./ai_service/models:/app/models:ro    # 모델 파일은 이미지에 넣지 않고 연결만 (Git 에도 안 올라감)
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s                       # heavy 모델 + YOLO 로딩 시간
+    restart: unless-stopped
+
+  web:
+    build: ./backend
+    env_file: .env
+    environment: &backend-env
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      AI_SERVICE_URL: http://ai:8001
+      DJANGO_ALLOWED_HOSTS: "*"
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - media:/app/media                      # 업로드·카메라 영상 (worker 와 공유)
+    ports:
+      - "8000:8000"
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    env_file: .env
+    environment: *backend-env
+    command: celery -A config worker -l info --concurrency=1
+    volumes:
+      - media:/app/media
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      ai: { condition: service_healthy }
+      web: { condition: service_started }     # web 이 migrate 를 먼저 하도록
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  media:

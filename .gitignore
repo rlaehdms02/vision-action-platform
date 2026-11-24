@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+db.sqlite3
+media/
+ai_service/models/*.joblib
+ai_service/models/*.pt
+ai_service/models/*.task
+*.mp4
+*.zip
+
+# 모델 폴더는 비워서 올림 (모델은 README 안내대로 직접 복사)
+ai_service/models/*
+!ai_service/models/.gitkeep
+*.sqlite3
+
+# 모델 폴더는 비워서 올림 (모델은 README 안내대로 직접 복사)
+ai_service/models/*
+!ai_service/models/.gitkeep
+*.sqlite3

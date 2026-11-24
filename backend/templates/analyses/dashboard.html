@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}관리자 대시보드 | Vision AI{% endblock %}
+{% block content %}
+<div class="result-head">
+  <div>
+    <h1>관리자 대시보드</h1>
+    <p class="sub">전체 사용자의 분석 작업 현황 · 10초마다 자동 갱신 · 마지막 갱신 <span id="updated-at">{{ stats.updated_at }}</span></p>
+  </div>
+  <button type="button" id="dash-refresh" class="btn-sub small">지금 새로고침</button>
+</div>
+
+<div class="tiles">
+  <div class="tile"><span>전체 작업</span><strong id="t-total">-</strong></div>
+  <div class="tile"><span>완료</span><strong id="t-completed">-</strong></div>
+  <div class="tile"><span>실패</span><strong id="t-failed">-</strong></div>
+  <div class="tile"><span>대기·처리 중</span><strong id="t-running">-</strong></div>
+  <div class="tile"><span>예측된 사람 수</span><strong id="t-people">-</strong></div>
+  <div class="tile"><span>평균 처리 시간</span><strong id="t-avg">-</strong></div>
+  <div class="tile"><span>예상 동작 일치율</span><strong id="t-match">-</strong><small id="t-match-sub"></small></div>
+</div>
+
+<div class="dash-grid">
+  <section class="card">
+    <h2>동작별 예측 수</h2>
+    <p class="hint">사람 1명의 예측 = 1건 (전체 작업 합계)</p>
+    <div class="chart-box"><canvas id="action-chart" aria-label="동작별 예측 수 막대 차트" role="img"></canvas></div>
+  </section>
+  <section class="card">
+    <h2>상태별 작업 수</h2>
+    <p class="hint">대기 · 처리 중 · 완료 · 실패</p>
+    <div class="chart-box donut"><canvas id="status-chart" aria-label="상태별 작업 수 도넛 차트" role="img"></canvas>
+      <div class="donut-center"><strong id="donut-total">-</strong><span>전체 작업</span></div>
+    </div>
+  </section>
+</div>
+
+<section class="card history">
+  <h2>최근 분석 작업 (전체 사용자)</h2>
+  <table>
+    <thead><tr><th>작업</th><th>사용자</th><th>제목</th><th>입력</th><th>상태</th><th>사람</th><th>대표 예측</th><th>예상</th><th>처리 시간</th><th>생성 시각</th></tr></thead>
+    <tbody id="recent-body"></tbody>
+  </table>
+  <p class="hint">작업 번호를 누르면 Django 관리자 화면에서 자세히 볼 수 있습니다.</p>
+</section>
+
+{{ stats|json_script:"dash-initial" }}
+<script src="{% static 'vendor/chart.umd.min.js' %}"></script>
+<script src="{% static 'js/dashboard.js' %}"></script>
+{% endblock %}

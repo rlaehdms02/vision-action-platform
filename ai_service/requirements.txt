@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+mediapipe==1.2.3
+ultralytics==8.4.203
+opencv-python-headless
+numpy
+pandas
+scikit-learn==1.9.1
+joblib
+lap

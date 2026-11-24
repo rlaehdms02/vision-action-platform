@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}동작 분석 | Vision AI{% endblock %}
+{% block content %}
+<h1>Vision AI 동작 분석</h1>
+<p class="sub">영상을 업로드하거나 IP Webcam 으로 {{ capture_seconds }}초 촬영하면, 영상 속 사람마다 동작을 예측합니다.</p>
+
+<div class="analysis-grid">
+  <!-- 왼쪽: 입력 -->
+  <section class="card">
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="UPLOAD">영상 업로드</button>
+      <button type="button" class="tab" data-tab="IP_WEBCAM">IP Webcam</button>
+    </div>
+
+    <form id="analysis-form" novalidate>
+      {% csrf_token %}
+
+      <div class="pane" data-pane="UPLOAD">
+        <label for="video">분석할 영상</label>
+        <input type="file" id="video" name="video" accept="video/*">
+        <p class="hint">허용 형식 {{ allowed_ext }} · 최대 {{ max_upload_mb }}MB</p>
+      </div>
+
+      <div class="pane hidden" data-pane="IP_WEBCAM">
+        <label for="camera_url">카메라 주소</label>
+        {% if camera_urls %}
+          <select id="camera_url" name="camera_url">
+            {% for u in camera_urls %}<option value="{{ u }}">{{ u }}</option>{% endfor %}
+          </select>
+        {% else %}
+          <p class="msg error">등록된 카메라가 없습니다. .env 의 ALLOWED_CAMERA_URLS 를 확인하세요.</p>
+        {% endif %}
+        <div class="row">
+          <div><span class="label">수집 시간</span><strong>{{ capture_seconds }}초</strong></div>
+          <div>
+            <label for="countdown">시작 전 대기</label>
+            <select id="countdown">
+              <option value="0">바로 시작</option>
+              <option value="3">3초</option>
+              <option value="5" selected>5초</option>
+              <option value="10">10초</option>
+            </select>
+          </div>
+        </div>
+        <span class="label">카메라</span>
+        <div class="rotate-group" id="facing-group" role="group" aria-label="전면 후면 카메라">
+          <button type="button" data-facing="back">후면 카메라</button>
+          <button type="button" data-facing="front">전면 카메라</button>
+        </div>
+        <p class="hint" id="facing-hint">후면 카메라가 화질이 더 좋습니다. 전환하면 미리보기가 잠깐 끊겼다 다시 나옵니다.</p>
+        <span class="label">화면 회전</span>
+        <div class="rotate-group" id="rotate-group" role="group" aria-label="화면 회전">
+          <button type="button" data-rot="0" class="active">0°</button>
+          <button type="button" data-rot="90">↻ 90°</button>
+          <button type="button" data-rot="180">180°</button>
+          <button type="button" data-rot="270">↺ 90°</button>
+        </div>
+        <p class="hint">미리보기에서 사람이 <strong>똑바로 서 보이게</strong> 맞추면, 녹화 영상도 같은 방향으로 돌려서 분석합니다.</p>
+        <button type="button" id="preview-toggle" class="btn-sub">카메라 미리보기 켜기</button>
+        <div id="preview-box" class="preview hidden">
+          <div id="preview-frame" class="preview-frame"><img id="preview" alt="카메라 미리보기"></div>
+          <p class="hint">머리부터 발끝까지 화면에 들어오게 2~3m 떨어져 주세요.</p>
+        </div>
+      </div>
+
+      <label for="expected_action">예상 동작 (선택)</label>
+      <select id="expected_action" name="expected_action">
+        <option value="">선택 안 함</option>
+        {% for value, label in actions %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+
+      <label for="title">제목 (선택)</label>
+      <input type="text" id="title" name="title" maxlength="100" placeholder="예: 3번 테스트">
+
+      <div id="form-error" class="msg error hidden"></div>
+      <button type="submit" id="start-btn" class="btn">AI 분석 시작</button>
+      <p id="upload-progress" class="hint hidden"></p>
+    </form>
+  </section>
+
+  <!-- 오른쪽: 진행 상태 + 결과 -->
+  <section class="card">
+    <div class="result-head">
+      <h2>분석 상태</h2>
+      <span id="job-label" class="sub"></span>
+    </div>
+    <ol class="steps" id="steps">
+      <li data-step="0"><span class="dot">1</span>대기</li>
+      <li data-step="1"><span class="dot">2</span>영상 수집</li>
+      <li data-step="2"><span class="dot">3</span>AI 분석</li>
+      <li data-step="3"><span class="dot">4</span>완료</li>
+    </ol>
+    <p id="status-text" class="status-text sub">분석을 시작하면 여기에 진행 상황이 표시됩니다.</p>
+
+    <h2>분석 결과</h2>
+    <table class="result-table">
+      <thead><tr><th>Track ID</th><th>예측 동작</th><th>신뢰도</th></tr></thead>
+      <tbody id="result-body">
+        <tr><td colspan="3" class="sub center">아직 결과가 없습니다.</td></tr>
+      </tbody>
+    </table>
+    <p id="result-meta" class="hint"></p>
+  </section>
+</div>
+
+<!-- 아래: 최근 내 작업 -->
+<section class="card history">
+  <div class="result-head">
+    <h2>최근 분석 기록</h2>
+    <button type="button" id="history-refresh" class="btn-sub small">새로고침</button>
+  </div>
+  <table>
+    <thead><tr><th>작업</th><th>제목</th><th>입력</th><th>상태</th><th>사람</th><th>대표 예측</th><th>신뢰도</th><th>예상 동작</th><th>생성 시각</th></tr></thead>
+    <tbody id="history-body"><tr><td colspan="9" class="sub center">불러오는 중…</td></tr></tbody>
+  </table>
+  <p class="hint">행을 누르면 그 작업의 결과를 위에 다시 보여줍니다.</p>
+</section>
+
+{{ page_config|json_script:"page-config" }}
+<script src="{% static 'js/analysis.js' %}"></script>
+{% endblock %}

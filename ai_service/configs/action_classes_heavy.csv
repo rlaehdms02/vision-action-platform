@@ -1,0 +1,4 @@
+action_id,action_label,type,description,main_joints
+A001,seated_knee_extension,dynamic,의자에 앉아 다리를 앞으로 뻗었다가 내린다,hip|knee|ankle
+A002,shoulder_reach_up_down,dynamic,서서 팔을 위아래로 뻗었다가 내린다,shoulder|elbow|wrist
+A006,side_lying_leg_raise,dynamic,옆으로 누워 다리를 들었다가 내린다,hip|knee|ankle

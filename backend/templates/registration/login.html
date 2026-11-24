@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}로그인 | Vision AI{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>로그인</h1>
+  {% if form.errors %}<div class="msg error">아이디 또는 비밀번호가 올바르지 않습니다.</div>{% endif %}
+  {% if next and not user.is_authenticated %}<div class="msg info">로그인이 필요한 페이지입니다.</div>{% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit" class="btn">로그인</button>
+  </form>
+  <p class="sub">계정이 없나요? <a href="{% url 'signup' %}">회원가입</a></p>
+</section>
+{% endblock %}
